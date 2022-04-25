@@ -1,0 +1,6 @@
+.idea/
+lib/
+target/*
+!target/ayun61cord-1.0-SNAPSHOT.jar
+ayun61cord.iml
+dependency-reduced-pom.xml

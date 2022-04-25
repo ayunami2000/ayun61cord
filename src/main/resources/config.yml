@@ -1,0 +1,24 @@
+# Bot token
+token: ""
+# Chat channel
+chat:
+  # Should we have a channel for linking server and discord chat?
+  enabled: true
+  # Channel ID
+  id: ""
+  # Should we show the discord user's discriminated name or nickname?
+  nick: false
+  # Commands
+  commands:
+    # Should we use commands?
+    enabled: true
+    # Command prefix
+    prefix: "!"
+# Console channel
+console:
+  # Should we have a channel for sending console commands from discord?
+  enabled: false
+  # Should we mirror the logs as well?
+  logs: false
+  # Channel ID
+  id: ""

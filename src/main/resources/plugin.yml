@@ -1,0 +1,8 @@
+name: ayun61cord
+author: ayunami2000
+version: 1.0
+main: me.ayunami2000.ayun61cord.Main
+commands:
+  discord:
+    description: Manage ayun61cord
+    usage: /<command>
