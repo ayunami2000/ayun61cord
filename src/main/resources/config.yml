@@ -1,5 +1,7 @@
 # Bot token
 token: ""
+# HTTP proxy (leave blank to disable)
+proxy: ""
 # Chat channel
 chat:
   # Should we have a channel for linking server and discord chat?

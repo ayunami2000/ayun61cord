@@ -19,6 +19,8 @@ import org.javacord.api.entity.message.MessageAuthor;
 import org.javacord.api.entity.message.embed.EmbedBuilder;
 import org.javacord.api.entity.user.User;
 
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -53,7 +55,19 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         }
         MessageHandler.initMessages();
         try {
-            discordApi = new DiscordApiBuilder().setToken(this.getConfig().getString("token")).login().get();
+            DiscordApiBuilder discBuilder = new DiscordApiBuilder();
+            String prox = this.getConfig().getString("proxy");
+            if (!prox.isEmpty()) {
+                String[] proxPieces = prox.split(":",2);
+                if (proxPieces.length == 2) {
+                    try {
+                        int port = Integer.parseInt(proxPieces[1]);
+                        discBuilder.setProxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxPieces[0], port)));
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+            }
+            discordApi = discBuilder.setToken(this.getConfig().getString("token")).login().get();
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
             return;
