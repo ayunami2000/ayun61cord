@@ -17,6 +17,7 @@ import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.MessageAttachment;
 import org.javacord.api.entity.message.MessageAuthor;
 import org.javacord.api.entity.message.embed.EmbedBuilder;
+import org.javacord.api.entity.user.User;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +35,8 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     private int sendChatTask = -1;
     private int sendLogTask = -1;
     private boolean sendLogs = false;
+    private boolean hasRegisteredEvents = false;
+    private Handler logHandler = null;
 
     @Override
     public void onLoad() {
@@ -43,6 +46,10 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     @Override
     public void onEnable() {
         this.saveDefaultConfig();
+        if (!hasRegisteredEvents) {
+            hasRegisteredEvents = true;
+            this.getServer().getPluginManager().registerEvents(this, this);
+        }
         MessageHandler.initMessages();
         try {
             discordApi = new DiscordApiBuilder().setToken(this.getConfig().getString("token")).login().get();
@@ -98,19 +105,30 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                 for (MessageAttachment attachment : messageCreateEvent.getMessageAttachments()) {
                     inGameMsg.append(MessageHandler.getMessage("attachment", attachment.getUrl()));
                 }
-                this.getServer().broadcastMessage(MessageHandler.getMessage("inGame", useNick ? messageAuthor.getDisplayName() : messageAuthor.getDiscriminatedName(), inGameMsg.toString()));
+                String name = "";
+                if (useNick) {
+                    User user = messageAuthor.asUser().orElse(null);
+                    if (user == null) {
+                        name = messageAuthor.getDisplayName();
+                    } else {
+                        name = user.getNickname(chat.getServer()).orElse(messageAuthor.getDisplayName());
+                    }
+                } else {
+                    name = messageAuthor.getDiscriminatedName();
+                }
+                this.getServer().broadcastMessage(MessageHandler.getMessage("inGame", name, inGameMsg.toString()));
             });
-            sendChatTask = this.getServer().getScheduler().scheduleSyncRepeatingTask(this, this::sendChatQueue, 0, 20);
+            sendChatTask = this.getServer().getScheduler().scheduleSyncRepeatingTask(this, this::sendChatQueue, 0, 10);
         }
         if (console != null) {
             sendLogs = this.getConfig().getBoolean("console.logs");
             if (sendLogs) {
                 List<String> logQueue = new ArrayList<>();
-                this.getLogger().addHandler(new Handler() {
+                logHandler = new Handler() {
                     @Override
                     public void publish(LogRecord record) {
                         if (record.getLevel().intValue() >= Level.INFO.intValue()) {
-                            logQueue.add(record.getMessage());
+                            logQueue.add(record.getMessage().replace("\u001B[m", "\u001B[0m"));
                         }
                     }
 
@@ -119,13 +137,14 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
 
                     @Override
                     public void close() throws SecurityException { }
-                });
+                };
+                this.getServer().getLogger().addHandler(logHandler);
                 sendLogTask = this.getServer().getScheduler().scheduleSyncRepeatingTask(this, () -> {
                     if (logQueue.size() > 0) {
                         String fullMsg = String.join("\n", logQueue);
-                        if (fullMsg.length() > 1990) fullMsg = fullMsg.substring(0, 1990) + "...";
+                        if (fullMsg.length() > 1985) fullMsg = fullMsg.substring(0, 1985) + "...";
                         fullMsg = fullMsg.replace("```", "``\\`");
-                        console.sendMessage("```" + fullMsg + "\n```");
+                        console.sendMessage("```ansi\n" + fullMsg + "\n```");
                         logQueue.clear();
                     }
                 }, 0, 20);
@@ -144,7 +163,11 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     @Override
     public void onDisable() {
         if (chat != null) {
-            chat.sendMessage(MessageHandler.getMessage("stopped"));
+            chat.sendMessage(MessageHandler.getMessage("stopped")).join();
+        }
+        if (logHandler != null) {
+            this.getServer().getLogger().removeHandler(logHandler);
+            logHandler = null;
         }
         if (sendChatTask != -1) {
             this.getServer().getScheduler().cancelTask(sendChatTask);
@@ -155,23 +178,21 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             sendLogTask = -1;
         }
         if (discordApi != null) {
-            discordApi.disconnect();
+            discordApi.disconnect().join();
             discordApi = null;
         }
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length == 0){
-            MessageHandler.sendMessage(sender, "command");
-            return true;
-        }
-        if (args[0].equalsIgnoreCase("reload")) {
+        if (args.length != 0 && args[0].equalsIgnoreCase("reload") && (sender.isOp() || sender.hasPermission("ayun61cord.reload"))) {
             MessageHandler.sendMessage(sender, "reload");
             reloadConfig();
             onDisable();
             onEnable();
+            return true;
         }
+        MessageHandler.sendMessage(sender, "command");
         return true;
     }
 
