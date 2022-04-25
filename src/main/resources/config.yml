@@ -8,12 +8,26 @@ chat:
   id: ""
   # Should we show the discord user's discriminated name or nickname?
   nick: false
+  # Filter mode
+  # 0 - Default -- Escapes all discord formatting characters.
+  # 1 - Code Block -- Only escapes the last of triple backticks.
+  # 2 - None -- Not recommended. Does not filter in-game --> discord messages.
+  filter: 0
   # Commands
   commands:
     # Should we use commands?
     enabled: true
     # Command prefix
     prefix: "!"
+    # Command Aliases
+    aliases:
+      # Lists online players.
+      list:
+        - "list"
+        - "lsit"
+        - "l"
+        - "online"
+        - "who"
 # Console channel
 console:
   # Should we have a channel for sending console commands from discord?

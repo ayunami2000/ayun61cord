@@ -37,6 +37,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     private boolean sendLogs = false;
     private boolean hasRegisteredEvents = false;
     private Handler logHandler = null;
+    private int filterMode = 0;
 
     @Override
     public void onLoad() {
@@ -67,8 +68,11 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         }
         if (chat != null) {
             chat.sendMessage(MessageHandler.getMessage("started"));
+            filterMode = this.getConfig().getInt("chat.filter");
             String cmdPrefix = this.getConfig().getBoolean("chat.commands.enabled") ? this.getConfig().getString("chat.commands.prefix").toLowerCase() : null;
             boolean useNick = this.getConfig().getBoolean("chat.nick");
+            List<String> listAliases = this.getConfig().getStringList("chat.commands.aliases.list");
+            listAliases.replaceAll(String::toLowerCase);
             chat.addMessageCreateListener(messageCreateEvent -> {
                 MessageAuthor messageAuthor = messageCreateEvent.getMessageAuthor();
                 if (messageAuthor.isYourself()) return;
@@ -78,26 +82,21 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                 boolean wasCommand = false;
                 if (cmdPrefix != null && messageContentLower.startsWith(cmdPrefix)) {
                     wasCommand = true;
-                    switch (messageContentLower.substring(cmdPrefix.length())) {
-                        case "l":
-                        case "list":
-                        case "lsit":
-                        case "online":
-                        case "who":
-                            Player[] players = this.getServer().getOnlinePlayers();
-                            StringBuilder playerListStrBldr = new StringBuilder();
-                            for (Player player : players) {
-                                playerListStrBldr.append(player.getName()).append(", ");
-                            }
-                            if (playerListStrBldr.length() == 0) {
-                                playerListStrBldr.append(MessageHandler.getMessage("noPlayers"));
-                            } else {
-                                playerListStrBldr.setLength(playerListStrBldr.length() - 2);
-                            }
-                            message.reply(new EmbedBuilder().setTitle(MessageHandler.getMessage("listTitle", players.length)).setDescription(playerListStrBldr.toString()));
-                            break;
-                        default:
-                            wasCommand = false;
+                    String cmd = messageContentLower.substring(cmdPrefix.length());
+                    if (listAliases.contains(cmd)) {
+                        Player[] players = this.getServer().getOnlinePlayers();
+                        StringBuilder playerListStrBldr = new StringBuilder();
+                        for (Player player : players) {
+                            playerListStrBldr.append(player.getName()).append(", ");
+                        }
+                        if (playerListStrBldr.length() == 0) {
+                            playerListStrBldr.append(MessageHandler.getMessage("noPlayers"));
+                        } else {
+                            playerListStrBldr.setLength(playerListStrBldr.length() - 2);
+                        }
+                        message.reply(new EmbedBuilder().setTitle(MessageHandler.getMessage("listTitle", players.length)).setDescription(playerListStrBldr.toString()));
+                    } else {
+                        wasCommand = false;
                     }
                 }
                 if (wasCommand) return;
@@ -164,6 +163,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     public void onDisable() {
         if (chat != null) {
             chat.sendMessage(MessageHandler.getMessage("stopped")).join();
+            filterMode = 0;
         }
         if (logHandler != null) {
             this.getServer().getLogger().removeHandler(logHandler);
@@ -197,8 +197,15 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     }
 
     private String filterMsg(String in) {
-        //from https://github.com/Swiiz/discord-escape/blob/master/index.js
-        return in.replaceAll("(\\_|\\*|\\~|\\`|\\||\\\\|\\<|\\>|\\:|\\!)", "\\\\$1").replaceAll("@(everyone|here|[!&]?[0-9]{17,21})", "@\u200b\\\\$1");
+        switch (filterMode) {
+            case 0:
+                //from https://github.com/Swiiz/discord-escape/blob/master/index.js
+                return in.replaceAll("(\\_|\\*|\\~|\\`|\\||\\\\|\\<|\\>|\\:|\\!)", "\\\\$1").replaceAll("@(everyone|here|[!&]?[0-9]{17,21})", "@\u200b\\\\$1");
+            case 1:
+                return in.replace("```", "``\\`");
+            default:
+                return in;
+        }
     }
 
     private static final Pattern STRIP_COLOR_PATTERN = Pattern.compile("(?i)&[0-9A-FK-ORX]");
@@ -208,7 +215,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     public void sendChat(String username, String msg) {
         if (chat == null) return;
         msg = STRIP_COLOR_PATTERN.matcher(msg).replaceAll("");
-        msgQueue.add(filterMsg(MessageHandler.getMessage("inCord", username, msg)));
+        msgQueue.add(MessageHandler.getMessage("inCord", filterMsg(username), filterMsg(msg)));
     }
 
     private void sendChatQueue() {
