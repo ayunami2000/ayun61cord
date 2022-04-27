@@ -54,6 +54,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             this.getServer().getPluginManager().registerEvents(this, this);
         }
         MessageHandler.initMessages();
+        fixOldConfigs();
         try {
             DiscordApiBuilder discBuilder = new DiscordApiBuilder();
             String prox = this.getConfig().getString("proxy");
@@ -134,14 +135,20 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             sendChatTask = this.getServer().getScheduler().scheduleSyncRepeatingTask(this, this::sendChatQueue, 0, 10);
         }
         if (console != null) {
-            sendLogs = this.getConfig().getBoolean("console.logs");
+            sendLogs = this.getConfig().getBoolean("console.logs.enabled");
             if (sendLogs) {
+                boolean colorLogs = this.getConfig().getBoolean("console.logs.ansi");
                 List<String> logQueue = new ArrayList<>();
                 logHandler = new Handler() {
                     @Override
                     public void publish(LogRecord record) {
                         if (record.getLevel().intValue() >= Level.INFO.intValue()) {
-                            logQueue.add(record.getMessage().replace("\u001B[m", "\u001B[0m"));
+                            String msg = record.getMessage();
+                            if (colorLogs) {
+                                logQueue.add(msg.replace("\u001B[m", "\u001B[0m"));
+                            } else {
+                                logQueue.add(msg.replaceAll("\u001B\\[[;\\d]*m", ""));
+                            }
                         }
                     }
 
@@ -152,12 +159,14 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                     public void close() throws SecurityException { }
                 };
                 this.getServer().getLogger().addHandler(logHandler);
+                int msgLenLimit = colorLogs ? 1985 : 1989;
+                String ansiText = colorLogs ? "ansi" : "";
                 sendLogTask = this.getServer().getScheduler().scheduleSyncRepeatingTask(this, () -> {
                     if (logQueue.size() > 0) {
                         String fullMsg = String.join("\n", logQueue);
-                        if (fullMsg.length() > 1985) fullMsg = fullMsg.substring(0, 1985) + "...";
+                        if (fullMsg.length() > msgLenLimit) fullMsg = fullMsg.substring(0, msgLenLimit) + "...";
                         fullMsg = fullMsg.replace("```", "``\\`");
-                        console.sendMessage("```ansi\n" + fullMsg + "\n```");
+                        console.sendMessage("```" + ansiText + "\n" + fullMsg + "\n```");
                         logQueue.clear();
                     }
                 }, 0, 20);
@@ -195,6 +204,16 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             discordApi.disconnect().join();
             discordApi = null;
         }
+    }
+
+    private void fixOldConfigs() {
+        boolean changed = false;
+        if (this.getConfig().isBoolean("console.logs")) {
+            changed = true;
+            this.getConfig().set("console.logs.enabled", this.getConfig().getBoolean("console.logs"));
+            this.getConfig().set("console.logs.ansi", false);
+        }
+        if (changed) this.saveConfig();
     }
 
     @Override

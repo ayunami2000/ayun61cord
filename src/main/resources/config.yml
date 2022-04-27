@@ -1,3 +1,7 @@
+# Note that if the config does not contain all comments, this
+# simply means that it was updated by the plugin! To get them
+# back, simply view or regenerate the default config!
+# ~ayunami2000
 # Bot token
 token: ""
 # HTTP proxy (leave blank to disable)
@@ -34,7 +38,11 @@ chat:
 console:
   # Should we have a channel for sending console commands from discord?
   enabled: false
-  # Should we mirror the logs as well?
-  logs: false
+  # Log mirroring
+  logs:
+    # Should we mirror the logs as well?
+    enabled: true
+    # Should the logs use Discord's ANSI colors?
+    ansi: true
   # Channel ID
   id: ""
