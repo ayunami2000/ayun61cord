@@ -23,10 +23,15 @@
             <systemPath>${project.basedir}/lib/craftbukkit-1.5.2-R1.0.jar</systemPath>
         </dependency>
         <dependency>
-            <groupId>org.javacord</groupId>
-            <artifactId>javacord</artifactId>
-            <version>3.4.0</version>
-            <type>pom</type>
+            <groupId>net.dv8tion</groupId>
+            <artifactId>JDA</artifactId>
+            <version>5.0.0-alpha.12</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>club.minnced</groupId>
+                    <artifactId>opus-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 

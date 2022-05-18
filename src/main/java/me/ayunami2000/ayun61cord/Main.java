@@ -1,5 +1,12 @@
 package me.ayunami2000.ayun61cord;
 
+import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import okhttp3.OkHttpClient;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -10,20 +17,11 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.javacord.api.DiscordApi;
-import org.javacord.api.DiscordApiBuilder;
-import org.javacord.api.entity.channel.ServerTextChannel;
-import org.javacord.api.entity.message.Message;
-import org.javacord.api.entity.message.MessageAttachment;
-import org.javacord.api.entity.message.MessageAuthor;
-import org.javacord.api.entity.message.embed.EmbedBuilder;
-import org.javacord.api.entity.user.User;
 
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -31,15 +29,21 @@ import java.util.regex.Pattern;
 
 public class Main extends JavaPlugin implements CommandExecutor, Listener {
     public static Main plugin;
-    private DiscordApi discordApi = null;
-    private ServerTextChannel chat = null;
-    private ServerTextChannel console = null;
+    private JDA jda = null;
+    public TextChannel chat = null;
+    public TextChannel console = null;
     private int sendChatTask = -1;
     private int sendLogTask = -1;
     private boolean sendLogs = false;
     private boolean hasRegisteredEvents = false;
     private Handler logHandler = null;
     private int filterMode = 0;
+
+    public String cmdPrefix = "!";
+    public boolean useNick = false;
+    public List<String> listAliases = null;
+
+    public boolean ready = false;
 
     @Override
     public void onLoad() {
@@ -56,82 +60,42 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         MessageHandler.initMessages();
         fixOldConfigs();
         try {
-            DiscordApiBuilder discBuilder = new DiscordApiBuilder();
+            JDABuilder discBuilder = JDABuilder.createDefault(this.getConfig().getString("token"));
             String prox = this.getConfig().getString("proxy");
             if (!prox.isEmpty()) {
                 String[] proxPieces = prox.split(":",2);
                 if (proxPieces.length == 2) {
                     try {
                         int port = Integer.parseInt(proxPieces[1]);
-                        discBuilder.setProxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxPieces[0], port)));
+                        OkHttpClient.Builder httpBuilder = new OkHttpClient.Builder().proxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxPieces[0], port)));
+                        discBuilder.setHttpClientBuilder(httpBuilder);
+                        discBuilder.setHttpClient(httpBuilder.build());
                     } catch (NumberFormatException ignored) {
                     }
                 }
             }
-            discordApi = discBuilder.setToken(this.getConfig().getString("token")).login().get();
-        } catch (InterruptedException | ExecutionException e) {
+            discBuilder.addEventListeners(new Events());
+            jda = discBuilder.build();
+            jda.awaitReady();
+        } catch (InterruptedException | javax.security.auth.login.LoginException e) {
             e.printStackTrace();
             return;
         }
         if (this.getConfig().getBoolean("chat.enabled")) {
-            chat = discordApi.getServerTextChannelById(this.getConfig().getString("chat.id")).orElse(null);
+            chat = jda.getTextChannelById(this.getConfig().getString("chat.id"));
             if (chat == null) return;
         }
         if (this.getConfig().getBoolean("console.enabled")) {
-            console = discordApi.getServerTextChannelById(this.getConfig().getString("console.id")).orElse(null);
+            console = jda.getTextChannelById(this.getConfig().getString("console.id"));
             if (console == null) return;
         }
         if (chat != null) {
-            chat.sendMessage(MessageHandler.getMessage("started"));
+            chat.sendMessage(MessageHandler.getMessage("started")).queue();
             filterMode = this.getConfig().getInt("chat.filter");
-            String cmdPrefix = this.getConfig().getBoolean("chat.commands.enabled") ? this.getConfig().getString("chat.commands.prefix").toLowerCase() : null;
-            boolean useNick = this.getConfig().getBoolean("chat.nick");
-            List<String> listAliases = this.getConfig().getStringList("chat.commands.aliases.list");
+            cmdPrefix = this.getConfig().getBoolean("chat.commands.enabled") ? this.getConfig().getString("chat.commands.prefix").toLowerCase() : "!";
+            useNick = this.getConfig().getBoolean("chat.nick");
+            listAliases = this.getConfig().getStringList("chat.commands.aliases.list");
             listAliases.replaceAll(String::toLowerCase);
-            chat.addMessageCreateListener(messageCreateEvent -> {
-                MessageAuthor messageAuthor = messageCreateEvent.getMessageAuthor();
-                if (messageAuthor.isYourself()) return;
-                String messageContent = messageCreateEvent.getMessageContent();
-                Message message = messageCreateEvent.getMessage();
-                String messageContentLower = messageContent.toLowerCase();
-                boolean wasCommand = false;
-                if (cmdPrefix != null && messageContentLower.startsWith(cmdPrefix)) {
-                    wasCommand = true;
-                    String cmd = messageContentLower.substring(cmdPrefix.length());
-                    if (listAliases.contains(cmd)) {
-                        Player[] players = this.getServer().getOnlinePlayers();
-                        StringBuilder playerListStrBldr = new StringBuilder();
-                        for (Player player : players) {
-                            playerListStrBldr.append(player.getName()).append(", ");
-                        }
-                        if (playerListStrBldr.length() == 0) {
-                            playerListStrBldr.append(MessageHandler.getMessage("noPlayers"));
-                        } else {
-                            playerListStrBldr.setLength(playerListStrBldr.length() - 2);
-                        }
-                        message.reply(new EmbedBuilder().setTitle(MessageHandler.getMessage("listTitle", players.length)).setDescription(playerListStrBldr.toString()));
-                    } else {
-                        wasCommand = false;
-                    }
-                }
-                if (wasCommand) return;
-                StringBuilder inGameMsg = new StringBuilder(messageContent);
-                for (MessageAttachment attachment : messageCreateEvent.getMessageAttachments()) {
-                    inGameMsg.append(MessageHandler.getMessage("attachment", attachment.getUrl()));
-                }
-                String name = "";
-                if (useNick) {
-                    User user = messageAuthor.asUser().orElse(null);
-                    if (user == null) {
-                        name = messageAuthor.getDisplayName();
-                    } else {
-                        name = user.getNickname(chat.getServer()).orElse(messageAuthor.getDisplayName());
-                    }
-                } else {
-                    name = messageAuthor.getDiscriminatedName();
-                }
-                this.getServer().broadcastMessage(MessageHandler.getMessage("inGame", name, inGameMsg.toString()));
-            });
             sendChatTask = this.getServer().getScheduler().scheduleSyncRepeatingTask(this, this::sendChatQueue, 0, 10);
         }
         if (console != null) {
@@ -166,26 +130,77 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                         String fullMsg = String.join("\n", logQueue);
                         if (fullMsg.length() > msgLenLimit) fullMsg = fullMsg.substring(0, msgLenLimit) + "...";
                         fullMsg = fullMsg.replace("```", "``\\`");
-                        console.sendMessage("```" + ansiText + "\n" + fullMsg + "\n```");
+                        console.sendMessage("```" + ansiText + "\n" + fullMsg + "\n```").queue();
                         logQueue.clear();
                     }
                 }, 0, 20);
             }
-            console.addMessageCreateListener(messageCreateEvent -> {
-                if (messageCreateEvent.getMessageAuthor().isYourself()) return;
-                String[] msgLines = messageCreateEvent.getMessageContent().split("\n");
-                this.getServer().getScheduler().scheduleSyncDelayedTask(this, () -> {
-                    for (String cmd : msgLines) this.getServer().dispatchCommand(this.getServer().getConsoleSender(), cmd);
+        }
+        ready = true;
+    }
+
+    public static class Events extends ListenerAdapter {
+        @Override
+        public void onMessageReceived(MessageReceivedEvent event) {
+            if (!plugin.ready) return;
+            User messageAuthor = event.getMessage().getAuthor();
+            if (messageAuthor.isBot()) return;
+            Message message = event.getMessage();
+            String messageContent = message.getContentDisplay();
+            if (event.getTextChannel() == Main.plugin.chat) {
+                String messageContentLower = messageContent.toLowerCase();
+                boolean wasCommand = false;
+                if (plugin.cmdPrefix != null && messageContentLower.startsWith(plugin.cmdPrefix)) {
+                    wasCommand = true;
+                    String cmd = messageContentLower.substring(plugin.cmdPrefix.length());
+                    if (plugin.listAliases.contains(cmd)) {
+                        Player[] players = plugin.getServer().getOnlinePlayers();
+                        StringBuilder playerListStrBldr = new StringBuilder();
+                        for (Player player : players) {
+                            playerListStrBldr.append(player.getName()).append(", ");
+                        }
+                        if (playerListStrBldr.length() == 0) {
+                            playerListStrBldr.append(MessageHandler.getMessage("noPlayers"));
+                        } else {
+                            playerListStrBldr.setLength(playerListStrBldr.length() - 2);
+                        }
+                        message.replyEmbeds(new EmbedBuilder().setTitle(MessageHandler.getMessage("listTitle", players.length)).setDescription(playerListStrBldr.toString()).build()).queue();
+                    } else {
+                        wasCommand = false;
+                    }
+                }
+                if (wasCommand) return;
+                StringBuilder inGameMsg = new StringBuilder(messageContent);
+                for (Message.Attachment attachment : message.getAttachments()) {
+                    inGameMsg.append(MessageHandler.getMessage("attachment", attachment.getUrl()));
+                }
+                String name;
+                if (plugin.useNick) {
+                    Member member = event.getMember();
+                    if (member == null) {
+                        name = messageAuthor.getName();
+                    } else {
+                        name = event.getMember().getEffectiveName();
+                    }
+                } else {
+                    name = messageAuthor.getName() + "#" + messageAuthor.getDiscriminator();
+                }
+                plugin.getServer().broadcastMessage(MessageHandler.getMessage("inGame", name, inGameMsg.toString()));
+            } else if (event.getTextChannel() == Main.plugin.console) {
+                String[] msgLines = messageContent.split("\n");
+                plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> {
+                    for (String cmd : msgLines) plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), cmd);
                 });
-                if (!sendLogs) messageCreateEvent.deleteMessage();
-            });
+                if (!plugin.sendLogs) message.delete().queue();
+            }
         }
     }
 
     @Override
     public void onDisable() {
+        ready = false;
         if (chat != null) {
-            chat.sendMessage(MessageHandler.getMessage("stopped")).join();
+            chat.sendMessage(MessageHandler.getMessage("stopped")).queue();
             filterMode = 0;
         }
         if (logHandler != null) {
@@ -200,9 +215,9 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             this.getServer().getScheduler().cancelTask(sendLogTask);
             sendLogTask = -1;
         }
-        if (discordApi != null) {
-            discordApi.disconnect().join();
-            discordApi = null;
+        if (jda != null) {
+            jda.shutdownNow();
+            jda = null;
         }
     }
 
@@ -255,7 +270,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         if (msgQueue.size() > 0) {
             String fullMsg = String.join("\n", msgQueue);
             if (fullMsg.length() > 1997) fullMsg = fullMsg.substring(0, 1997) + "...";
-            chat.sendMessage(fullMsg);
+            chat.sendMessage(fullMsg).queue();
             msgQueue.clear();
         }
     }

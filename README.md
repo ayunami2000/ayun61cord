@@ -9,4 +9,4 @@ Discord for Minecraft 1.5.2!
 - player join/leave & server start/stop messages
 
 ## Todo
-- Pings and emojis in-game
+- Default emojis in-game (change to unicode)
