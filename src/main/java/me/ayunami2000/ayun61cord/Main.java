@@ -216,7 +216,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             sendLogTask = -1;
         }
         if (jda != null) {
-            jda.shutdownNow();
+            jda.shutdown();
             jda = null;
         }
     }
