@@ -147,7 +147,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             if (messageAuthor.isBot()) return;
             Message message = event.getMessage();
             String messageContent = message.getContentDisplay();
-            if (event.getTextChannel() == Main.plugin.chat) {
+            if (Main.plugin.chat != null && event.getTextChannel() == Main.plugin.chat) {
                 String messageContentLower = messageContent.toLowerCase();
                 boolean wasCommand = false;
                 if (plugin.cmdPrefix != null && messageContentLower.startsWith(plugin.cmdPrefix)) {
@@ -186,7 +186,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                     name = messageAuthor.getName() + "#" + messageAuthor.getDiscriminator();
                 }
                 plugin.getServer().broadcastMessage(MessageHandler.getMessage("inGame", name, inGameMsg.toString()));
-            } else if (event.getTextChannel() == Main.plugin.console) {
+            } else if (Main.plugin.console != null && event.getTextChannel() == Main.plugin.console) {
                 String[] msgLines = messageContent.split("\n");
                 plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> {
                     for (String cmd : msgLines) plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), cmd);
