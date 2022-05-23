@@ -143,6 +143,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         @Override
         public void onMessageReceived(MessageReceivedEvent event) {
             if (!plugin.ready) return;
+            if (!event.isFromType(ChannelType.TEXT)) return;
             User messageAuthor = event.getMessage().getAuthor();
             if (messageAuthor.isBot()) return;
             Message message = event.getMessage();
