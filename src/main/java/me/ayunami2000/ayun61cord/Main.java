@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.requests.GatewayIntent;
 import okhttp3.OkHttpClient;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -60,7 +61,10 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         MessageHandler.initMessages();
         fixOldConfigs();
         try {
-            JDABuilder discBuilder = JDABuilder.createDefault(this.getConfig().getString("token"));
+            String token = System.getenv("AYUN61CORD_TOKEN");
+            if (token == null) token = this.getConfig().getString("token");
+            JDABuilder discBuilder = JDABuilder.createDefault(token);
+            discBuilder.enableIntents(GatewayIntent.MESSAGE_CONTENT);
             String prox = this.getConfig().getString("proxy");
             if (!prox.isEmpty()) {
                 String[] proxPieces = prox.split(":",2);
@@ -148,7 +152,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             if (messageAuthor.isBot()) return;
             Message message = event.getMessage();
             String messageContent = message.getContentDisplay();
-            if (Main.plugin.chat != null && event.getTextChannel() == Main.plugin.chat) {
+            if (Main.plugin.chat != null && event.getChannel() == Main.plugin.chat) {
                 String messageContentLower = messageContent.toLowerCase();
                 boolean wasCommand = false;
                 if (plugin.cmdPrefix != null && messageContentLower.startsWith(plugin.cmdPrefix)) {
@@ -187,7 +191,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
                     name = messageAuthor.getName() + "#" + messageAuthor.getDiscriminator();
                 }
                 plugin.getServer().broadcastMessage(MessageHandler.getMessage("inGame", name, inGameMsg.toString()));
-            } else if (Main.plugin.console != null && event.getTextChannel() == Main.plugin.console) {
+            } else if (Main.plugin.console != null && event.getChannel() == Main.plugin.console) {
                 String[] msgLines = messageContent.split("\n");
                 plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> {
                     for (String cmd : msgLines) plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), cmd);
