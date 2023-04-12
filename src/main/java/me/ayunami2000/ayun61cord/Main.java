@@ -94,7 +94,10 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
             if (console == null) return;
         }
         if (chat != null) {
-            chat.sendMessage(MessageHandler.getMessage("started")).queue();
+			String msg = MessageHandler.getMessage("started");
+			if (!msg.isEmpty()) {
+				chat.sendMessage(msg).queue();
+			}
             filterMode = this.getConfig().getInt("chat.filter");
             cmdPrefix = this.getConfig().getBoolean("chat.commands.enabled") ? this.getConfig().getString("chat.commands.prefix").toLowerCase() : "!";
             useNick = this.getConfig().getBoolean("chat.nick");
@@ -205,7 +208,10 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     public void onDisable() {
         ready = false;
         if (chat != null) {
-            chat.sendMessage(MessageHandler.getMessage("stopped")).queue();
+			String msg = MessageHandler.getMessage("stopped");
+            if (!msg.isEmpty()) {
+				chat.sendMessage(msg).queue();
+			}
             filterMode = 0;
         }
         if (logHandler != null) {
@@ -290,14 +296,20 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         if (chat != null) {
-            msgQueue.add(MessageHandler.getMessage("joined", event.getPlayer().getName()));
+			String msg = MessageHandler.getMessage("joined", event.getPlayer().getName());
+			if (!msg.isEmpty()) {
+				msgQueue.add(msg);
+			}
         }
     }
 
     @EventHandler
     public void onLeave(PlayerQuitEvent event) {
         if (chat != null) {
-            msgQueue.add(MessageHandler.getMessage("left", event.getPlayer().getName()));
+            String msg = MessageHandler.getMessage("left", event.getPlayer().getName());
+			if (!msg.isEmpty()) {
+				msgQueue.add(msg);
+			}
         }
     }
 }
