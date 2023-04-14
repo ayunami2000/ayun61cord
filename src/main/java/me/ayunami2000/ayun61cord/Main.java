@@ -13,6 +13,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -286,14 +287,15 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onChat(AsyncPlayerChatEvent event) {
+		if (event.isCancelled()) return;
         if (chat != null) {
             sendChat(event.getPlayer().getName(), event.getMessage());
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onJoin(PlayerJoinEvent event) {
         if (chat != null) {
 			String msg = MessageHandler.getMessage("joined", event.getPlayer().getName());
@@ -303,7 +305,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onLeave(PlayerQuitEvent event) {
         if (chat != null) {
             String msg = MessageHandler.getMessage("left", event.getPlayer().getName());
