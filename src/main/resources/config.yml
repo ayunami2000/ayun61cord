@@ -14,6 +14,8 @@ chat:
   id: ""
   # Should we show the discord user's discriminated name or nickname?
   nick: false
+  # Should we show the in-game user's display name or username?
+  username: true
   # Filter mode
   # 0 - Default -- Escapes all discord formatting characters.
   # 1 - Code Block -- Only escapes the last of triple backticks.
