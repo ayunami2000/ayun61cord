@@ -20,6 +20,7 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.NotNull;
 
 import java.net.InetSocketAddress;
 import java.net.Proxy;
@@ -152,11 +153,11 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
 
 	public static class Events extends ListenerAdapter {
 		@Override
-		public void onMessageReceived(MessageReceivedEvent event) {
+		public void onMessageReceived(@NotNull MessageReceivedEvent event) {
 			if (!plugin.ready) return;
 			if (!event.isFromType(ChannelType.TEXT)) return;
 			User messageAuthor = event.getMessage().getAuthor();
-			if (messageAuthor.isBot()) return;
+			if (messageAuthor.getIdLong() == event.getJDA().getSelfUser().getIdLong()) return;
 			Message message = event.getMessage();
 			String messageContent = message.getContentDisplay();
 			if (Main.plugin.chat != null && event.getChannel() == Main.plugin.chat) {
@@ -197,7 +198,10 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
 				} else {
 					name = messageAuthor.getName() + "#" + messageAuthor.getDiscriminator();
 				}
-				plugin.getServer().broadcastMessage(MessageHandler.getMessage("inGame", name, inGameMsg.toString()));
+				for (Player onlinePlayer : plugin.getServer().getOnlinePlayers()) {
+					if (onlinePlayer.hasPermission("ayun61cord.ignorediscord")) continue;
+					onlinePlayer.sendMessage(MessageHandler.getMessage("inGame", name, inGameMsg.toString()));
+				}
 			} else if (Main.plugin.console != null && event.getChannel() == Main.plugin.console) {
 				String[] msgLines = messageContent.split("\n");
 				plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> {
@@ -273,7 +277,7 @@ public class Main extends JavaPlugin implements CommandExecutor, Listener {
 
 	private static final Pattern STRIP_COLOR_PATTERN = Pattern.compile("(?i)&[0-9A-FK-ORX]");
 
-	private List<String> msgQueue = new ArrayList<>();
+	private final List<String> msgQueue = new ArrayList<>();
 
 	public void sendChat(String username, String msg) {
 		if (chat == null) return;
